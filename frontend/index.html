@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="AccessApp — Inclusive communication for all abilities" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>AccessApp — Inclusive Communication</title>
+  <link rel="stylesheet" href="/css/main.css" />
+
+  <!-- Leaflet Maps -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+
+  <!-- Socket.io -->
+  <script src="/socket.io/socket.io.js" defer></script>
+
+  <!-- Tesseract.js OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js" defer></script>
+
+  <!-- TensorFlow.js + COCO-SSD -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js" defer></script>
+
+  <!-- MediaPipe Hands + Camera Utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" defer></script>
+</head>
+<body>
+
+<div class="app-wrapper" role="main">
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- ONBOARDING PAGE                                    -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="page-onboarding" class="page" aria-label="Onboarding">
+    <div class="onboarding-logo" role="img" aria-label="AccessApp logo">♿</div>
+    <h1 id="onboarding-title">Welcome to AccessApp</h1>
+    <p id="onboarding-subtitle">Setting up your experience...</p>
+    <div id="onboarding-choices" role="group" aria-label="Answer choices"></div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- AUTH PAGE                                          -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="page-auth" class="page" aria-label="Sign in or Register">
+    <div class="auth-header">
+      <div style="font-size:2.5rem">♿</div>
+      <h1>AccessApp</h1>
+      <p>Inclusive communication for everyone</p>
+    </div>
+
+    <div id="auth-error" role="alert"></div>
+
+    <div class="auth-tabs" role="tablist">
+      <button class="auth-tab active" role="tab" onclick="showAuthForm('register')" aria-selected="true">Register</button>
+      <button class="auth-tab" role="tab" onclick="showAuthForm('login')" aria-selected="false">Log In</button>
+    </div>
+
+    <!-- Register Form -->
+    <form id="auth-register-form" onsubmit="handleRegister(event)" novalidate aria-label="Create account">
+      <div class="form-group">
+        <label class="form-label" for="reg-name">Full Name</label>
+        <input class="form-input" id="reg-name" name="name" type="text" placeholder="Your name" required autocomplete="name" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="reg-email">Email</label>
+        <input class="form-input" id="reg-email" name="email" type="email" placeholder="you@example.com" required autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="reg-password">Password</label>
+        <input class="form-input" id="reg-password" name="password" type="password" placeholder="Min 6 characters" required autocomplete="new-password" />
+      </div>
+      <button class="btn btn-primary btn-full" type="submit">Create Account</button>
+      <p style="text-align:center;margin-top:16px;color:var(--text-muted);font-size:0.875rem">
+        Already have an account? <button type="button" style="background:none;border:none;color:var(--primary-light);cursor:pointer;font-size:inherit" onclick="showAuthForm('login')">Log in</button>
+      </p>
+    </form>
+
+    <!-- Login Form -->
+    <form id="auth-login-form" style="display:none" onsubmit="handleLogin(event)" novalidate aria-label="Log in">
+      <div class="form-group">
+        <label class="form-label" for="log-email">Email</label>
+        <input class="form-input" id="log-email" name="email" type="email" placeholder="you@example.com" required autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="log-password">Password</label>
+        <input class="form-input" id="log-password" name="password" type="password" placeholder="Password" required autocomplete="current-password" />
+      </div>
+      <button class="btn btn-primary btn-full" type="submit">Log In</button>
+      <p style="text-align:center;margin-top:16px;color:var(--text-muted);font-size:0.875rem">
+        No account? <button type="button" style="background:none;border:none;color:var(--primary-light);cursor:pointer;font-size:inherit" onclick="showAuthForm('register')">Register</button>
+      </p>
+    </form>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- DASHBOARD PAGE                                     -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="page-dashboard" class="page" aria-label="Dashboard">
+    <div class="dashboard-header">
+      <div class="dashboard-greeting">
+        <h2>Hello, <span id="dashboard-username">User</span> 👋</h2>
+        <p>What do you need today?</p>
+      </div>
+      <button class="btn btn-sm btn-secondary" onclick="logout()" aria-label="Log out">⬚ Out</button>
+    </div>
+
+    <div class="feature-grid" role="list">
+      <button class="feature-card" onclick="openNavigation()" role="listitem" aria-label="Campus Navigation">
+        <span class="feature-icon">🗺️</span>
+        <span class="feature-name">Navigate</span>
+        <span class="feature-desc">Campus map & directions</span>
+      </button>
+
+      <button class="feature-card" onclick="openBusTracker()" role="listitem" aria-label="Bus Tracker">
+        <span class="feature-icon">🚌</span>
+        <span class="feature-name">Bus Tracker</span>
+        <span class="feature-desc">Live bus locations</span>
+      </button>
+
+      <button class="feature-card" onclick="openOCR()" role="listitem" aria-label="OCR Text Scanner">
+        <span class="feature-icon">📷</span>
+        <span class="feature-name">Read Text</span>
+        <span class="feature-desc">Scan any text with camera</span>
+      </button>
+
+      <button class="feature-card" onclick="openGestureMode()" role="listitem" aria-label="Gesture Control">
+        <span class="feature-icon">✋</span>
+        <span class="feature-name">Gestures</span>
+        <span class="feature-desc">Control with hand signs</span>
+      </button>
+
+      <button class="feature-card sos-card" onclick="openSOS()" role="listitem" aria-label="Emergency SOS">
+        <span class="feature-icon">🚨</span>
+        <span class="feature-name">SOS Emergency</span>
+        <span class="feature-desc">Tap to send alert & location</span>
+      </button>
+    </div>
+
+    <!-- Keyboard Shortcut hints (visible mode only) -->
+    <div class="card mode-sighted" style="font-size:0.78rem;color:var(--text-muted)">
+      <strong>Keyboard shortcuts:</strong>
+      Alt+N Navigate · Alt+B Bus · Alt+O OCR · Alt+S SOS · Alt+M Mic
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- NAVIGATION PAGE                                    -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="page-navigation" class="page" aria-label="Campus Navigation">
+    <div class="page-header">
+      <button class="back-btn" onclick="showPage('dashboard')" aria-label="Go back">←</button>
+      <h2>🗺️ Navigation</h2>
+    </div>
+
+    <div id="nav-map" aria-label="Campus map" role="application"></div>
+
+    <div style="padding:16px 16px 8px">
+      <h3 style="font-size:1rem;font-weight:700;margin-bottom:4px">Choose Destination</h3>
+      <p style="font-size:0.8rem;color:var(--text-muted)">Tap a location to start navigation</p>
+    </div>
+    <div class="dest-grid" id="dest-buttons" role="list" aria-label="Campus destinations"></div>
+    <div id="nav-steps" aria-live="polite" aria-label="Navigation steps"></div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- BUS TRACKER PAGE                                   -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="page-bus" class="page" aria-label="Bus Tracker">
+    <div class="page-header">
+      <button class="back-btn" onclick="showPage('dashboard')" aria-label="Go back">←</button>
+      <h2>🚌 Bus Tracker</h2>
+    </div>
+
+    <div id="bus-map" aria-label="Bus locations map" role="application"></div>
+    <p id="bus-last-updated" aria-live="polite"></p>
+    <div id="bus-cards" aria-label="Bus status cards" aria-live="polite"></div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- OCR PAGE                                           -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="page-ocr" class="page" aria-label="OCR Text Scanner">
+    <div class="page-header">
+      <button class="back-btn" onclick="showPage('dashboard')" aria-label="Go back">←</button>
+      <h2>📷 Read Text</h2>
+    </div>
+
+    <input type="file" id="ocr-file-input" accept="image/*" style="display:none" aria-label="Upload image" />
+
+    <div class="ocr-upload-zone" onclick="document.getElementById('ocr-file-input').click()" role="button" tabindex="0" aria-label="Upload an image to read text">
+      <div class="ocr-upload-icon">📄</div>
+      <p style="font-weight:600">Tap to upload image</p>
+      <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px">Supports JPG, PNG, WEBP</p>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:16px">
+      <button class="btn btn-secondary btn-full" id="ocr-camera-btn" aria-label="Use camera">📷 Use Camera</button>
+      <button class="btn btn-primary btn-full" id="ocr-upload-btn" aria-label="Upload file">📁 Upload File</button>
+    </div>
+
+    <video id="ocr-video" autoplay playsinline muted aria-label="Camera preview"></video>
+    <button id="ocr-capture-btn" class="btn btn-primary btn-full" style="display:none;margin-bottom:16px" aria-label="Capture image">📸 Capture</button>
+
+    <img id="ocr-preview" alt="Uploaded image preview" />
+    <div id="ocr-status" class="ocr-status" role="status" aria-live="polite"></div>
+    <div id="ocr-output" aria-live="polite" aria-label="Extracted text"></div>
+
+    <div class="ocr-actions" id="ocr-action-btns">
+      <button id="ocr-copy-btn" class="btn btn-secondary" style="display:none" aria-label="Copy text">📋 Copy Text</button>
+      <button id="ocr-speak-btn" class="btn btn-primary" style="display:none" aria-label="Read text aloud">🔊 Read Aloud</button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- GESTURE PAGE                                       -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <section id="page-gesture" class="page" aria-label="Gesture Control">
+    <div class="page-header">
+      <button class="back-btn" onclick="showPage('dashboard')" aria-label="Go back">←</button>
+      <h2>✋ Gesture Control</h2>
+    </div>
+    <div style="padding:16px">
+      <p style="color:var(--text-muted);margin-bottom:16px">Point your camera at your hand. Gestures control the app.</p>
+      <div style="position:relative;border-radius:var(--radius);overflow:hidden;margin-bottom:16px">
+        <video id="gesture-video" style="width:100%;display:block" autoplay playsinline muted aria-label="Gesture camera feed"></video>
+        <canvas id="gesture-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%"></canvas>
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:12px;font-size:0.95rem">Gesture Guide</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.875rem">
+          <div>✋ Open Palm → Select</div>
+          <div>✊ Fist → Cancel</div>
+          <div>👈 Swipe Left → Previous</div>
+          <div>👉 Swipe Right → Next</div>
+          <div>👍 Thumbs Up → Confirm</div>
+          <div>👆 Point → Navigate</div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="startGestureDetection()" id="gesture-start-btn">
+        Start Gesture Detection
+      </button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- GLOBAL UI ELEMENTS                                 -->
+  <!-- ═══════════════════════════════════════════════════ -->
+
+  <!-- Floating mic button (hidden in mute mode via CSS) -->
+  <button id="mic-btn" onclick="toggleMic()" aria-label="Toggle voice control" title="Alt+M">
+    🎤
+  </button>
+
+  <!-- Visual alerts panel (shown in deaf mode) -->
+  <div id="visual-alert-panel" role="alert" aria-live="assertive"></div>
+
+  <!-- Gesture visual indicator -->
+  <div id="gesture-indicator" aria-live="polite"></div>
+
+  <!-- SOS overlay (shown when SOS triggered) -->
+  <div id="sos-overlay" role="alertdialog" aria-modal="true" aria-label="SOS Alert Active"></div>
+
+  <!-- Screen-reader live region -->
+  <div id="sr-live-region" aria-live="polite" aria-atomic="true"
+    style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden"></div>
+
+  <!-- Bottom Nav Bar -->
+  <nav class="nav-bar" aria-label="Main navigation">
+    <button class="nav-item" data-page="dashboard" onclick="showPage('dashboard')" aria-label="Home">
+      <span class="nav-icon">🏠</span>
+      <span>Home</span>
+    </button>
+    <button class="nav-item" data-page="navigation" onclick="openNavigation()" aria-label="Navigation">
+      <span class="nav-icon">🗺️</span>
+      <span>Navigate</span>
+    </button>
+    <button class="nav-item" data-page="bus" onclick="openBusTracker()" aria-label="Bus tracker">
+      <span class="nav-icon">🚌</span>
+      <span>Bus</span>
+    </button>
+    <button class="nav-item" data-page="ocr" onclick="openOCR()" aria-label="OCR Scanner">
+      <span class="nav-icon">📷</span>
+      <span>Scan</span>
+    </button>
+    <button class="nav-item" onclick="openSOS()" aria-label="SOS emergency">
+      <span class="nav-icon" style="color:var(--danger)">🚨</span>
+      <span style="color:var(--danger)">SOS</span>
+    </button>
+  </nav>
+
+</div><!-- /.app-wrapper -->
+
+<!-- ─── JavaScript Modules (order matters) ─────────────── -->
+<script src="/js/modules/capabilityStore.js"></script>
+<script src="/js/modules/voiceAssistant.js"></script>
+<script src="/js/modules/hapticEngine.js"></script>
+<script src="/js/modules/adaptiveUI.js"></script>
+<script src="/js/modules/sos.js"></script>
+<script src="/js/modules/navigation.js"></script>
+<script src="/js/modules/busTracker.js"></script>
+<script src="/js/modules/ocrScanner.js"></script>
+<script src="/js/ml/gestureDetector.js"></script>
+<script src="/js/ml/objectDetector.js"></script>
+<script src="/js/app.js"></script>
+
+<script>
+  // Gesture page functions
+  window.openGestureMode = () => {
+    showPage('gesture');
+    if (CapabilityStore.get().canHear)
+      VoiceAssistant.speak('Gesture control. Point your camera at your hand and make gestures to control the app.');
+  };
+
+  window.startGestureDetection = async () => {
+    const btn = document.getElementById('gesture-start-btn');
+    btn.textContent = 'Starting...';
+    btn.disabled = true;
+
+    const started = await GestureDetector.init('gesture-video', (gesture) => {
+      // Route gestures to current page action
+      const G = GestureDetector.GESTURES;
+      if (gesture === G.FIST) showPage('dashboard');
+      if (gesture === G.THUMBS_UP) SOSSystem.trigger('gesture');
+    });
+
+    if (started) {
+      btn.textContent = '✅ Detection Running';
+    } else {
+      btn.textContent = 'MediaPipe not available';
+      btn.disabled = false;
+    }
+  };
+</script>
+
+</body>
+</html>
