@@ -22,7 +22,8 @@ const VoiceAssistant = (() => {
     recognition.lang = 'en-US';
 
     recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript.toLowerCase().trim();
+      // FIX: Do not force lowercase here. Keep original casing for names.
+      const transcript = event.results[0][0].transcript.trim();
       console.log('Heard:', transcript);
       if (onResultCallback) onResultCallback(transcript);
     };
@@ -31,6 +32,10 @@ const VoiceAssistant = (() => {
       console.error('Speech recognition error:', event.error);
       isListening = false;
       updateMicUI(false);
+      // Alert user if permission denied
+      if (event.error === 'not-allowed') {
+        alert('Microphone permission denied. Please enable it in browser settings.');
+      }
     };
 
     recognition.onend = () => {
@@ -72,10 +77,20 @@ const VoiceAssistant = (() => {
       speak('Speech recognition is not available in this browser.');
       return;
     }
+    
+    // Safety check: if already listening, stop first
+    if (isListening) {
+        recognition.stop();
+    }
+
     onResultCallback = callback;
-    recognition.start();
-    isListening = true;
-    updateMicUI(true);
+    
+    // Small timeout to ensure previous session closed
+    setTimeout(() => {
+        recognition.start();
+        isListening = true;
+        updateMicUI(true);
+    }, 100);
   };
 
   // Stop listening
@@ -95,16 +110,17 @@ const VoiceAssistant = (() => {
     }
   };
 
-  // Parse yes/no from speech
-  const isYes = (text) => /\b(yes|yeah|yep|correct|right|sure|okay|ok|affirmative)\b/.test(text);
-  const isNo  = (text) => /\b(no|nope|nah|negative|wrong|don't|dont)\b/.test(text);
+  // Parse yes/no from speech (handle case insensitivity here)
+  const isYes = (text) => /\b(yes|yeah|yep|correct|right|sure|okay|ok|affirmative)\b/i.test(text);
+  const isNo  = (text) => /\b(no|nope|nah|negative|wrong|don't|dont)\b/i.test(text);
 
   // Extract ability answers from speech
   const parseAbilities = (text) => {
+    const lowerText = text.toLowerCase();
     return {
-      canSee:   !/\b(blind|cannot see|can't see|no (i )?(cannot|can't) see)\b/.test(text),
-      canHear:  !/\b(deaf|cannot hear|can't hear)\b/.test(text),
-      canSpeak: !/\b(mute|cannot speak|can't speak|dumb)\b/.test(text)
+      canSee:   !/\b(blind|cannot see|can't see|no (i )?(cannot|can't) see)\b/.test(lowerText),
+      canHear:  !/\b(deaf|cannot hear|can't hear)\b/.test(lowerText),
+      canSpeak: !/\b(mute|cannot speak|can't speak|dumb)\b/.test(lowerText)
     };
   };
 

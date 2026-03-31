@@ -274,30 +274,57 @@ window.logout = () => {
 window.toggleMic = () => {
   if (VoiceAssistant.isListening()) {
     VoiceAssistant.stopListening();
-  } else {
-    VoiceAssistant.listen((transcript) => {
-      // Check for SOS command first
-      if (SOSSystem.checkVoiceTrigger(transcript)) return;
-
-      // Navigation commands
-      if (transcript.includes('navigate') || transcript.includes('go to')) {
-        showPage('navigation');
-        return;
-      }
-      if (transcript.includes('bus')) {
-        showPage('bus');
-        return;
-      }
-      if (transcript.includes('scan') || transcript.includes('read')) {
-        showPage('ocr');
-        return;
-      }
-      if (transcript.includes('home') || transcript.includes('dashboard')) {
-        showPage('dashboard');
-        return;
-      }
-    });
+    return;
   }
+
+  VoiceAssistant.listen((transcript) => {
+    console.log("Processing voice input:", transcript);
+
+    // 1. CHECK CONTEXT: Is the user typing in an input field?
+    const activeElement = document.activeElement;
+    const isInputField = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA');
+
+    if (isInputField) {
+      // MODE: DICTATION
+      // The user has clicked an input box, so type what they said.
+      activeElement.value = transcript;
+      activeElement.dispatchEvent(new Event('input', { bubbles: true })); // Trigger validation
+      
+      // Read it back for confirmation
+      if (CapabilityStore.get().canHear) {
+        VoiceAssistant.speak(`Set to ${transcript}`);
+      }
+      return; 
+    }
+
+    // 2. MODE: GLOBAL COMMANDS
+    // Use lowercase for command matching
+    const cmd = transcript.toLowerCase();
+
+    if (SOSSystem.checkVoiceTrigger(cmd)) return;
+
+    if (cmd.includes('navigate') || cmd.includes('go to')) {
+      showPage('navigation');
+      return;
+    }
+    if (cmd.includes('bus')) {
+      showPage('bus');
+      return;
+    }
+    if (cmd.includes('scan') || cmd.includes('read')) {
+      showPage('ocr');
+      return;
+    }
+    if (cmd.includes('home') || cmd.includes('dashboard')) {
+      showPage('dashboard');
+      return;
+    }
+
+    // If no command matched
+    if (CapabilityStore.get().canHear) {
+      VoiceAssistant.speak(`I heard ${transcript}, but I'm not sure what to do.`);
+    }
+  });
 };
 
 // ─── Keyboard Shortcuts ───────────────────────────────────────────────────────
